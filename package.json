@@ -1,6 +1,7 @@
 {
     "name": "ikki-escrow",
     "version": "0.1.0",
+    "type": "commonjs",
     "private": true,
     "scripts": {
         "build": "anchor build",

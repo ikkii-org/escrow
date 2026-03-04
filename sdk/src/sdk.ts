@@ -17,7 +17,7 @@ import {
     TOKEN_PROGRAM_ID,
     getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import type { IkkiEscrow } from "../target/types/ikki_escrow";
+import type { IkkiEscrow } from "../../target/types/ikki_escrow";
 
 // ─── PDA Derivation ─────────────────────────────────────────────────────────────
 
