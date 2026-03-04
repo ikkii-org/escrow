@@ -1,0 +1,27 @@
+{
+    "name": "ikki-escrow",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "build": "anchor build",
+        "test": "anchor test",
+        "lint:fix": "prettier */*.js \"*/**/*{.js,.ts}\" -w",
+        "lint": "prettier */*.js \"*/**/*{.js,.ts}\" --check"
+    },
+    "dependencies": {
+        "@coral-xyz/anchor": "^0.31.1",
+        "@solana/spl-token": "^0.4.6",
+        "@solana/web3.js": "^1.95.0"
+    },
+    "devDependencies": {
+        "@types/bn.js": "^5.1.5",
+        "@types/chai": "^4.3.11",
+        "@types/mocha": "^10.0.6",
+        "@types/node": "^25.3.3",
+        "chai": "^4.4.1",
+        "mocha": "^10.2.0",
+        "prettier": "^3.0.0",
+        "ts-mocha": "^10.0.0",
+        "typescript": "^5.3.3"
+    }
+}
