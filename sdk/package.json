@@ -1,0 +1,27 @@
+{
+    "name": "ikki-escrow-sdk",
+    "version": "1.0.0",
+    "description": "SDK for Ikkii Solana Escrow Program",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc",
+        "prepublishOnly": "npm run build"
+    },
+    "dependencies": {
+        "@coral-xyz/anchor": "^0.31.1",
+        "@solana/spl-token": "^0.4.6",
+        "@solana/web3.js": "^1.95.0",
+        "bn.js": "^5.2.1"
+    },
+    "devDependencies": {
+        "typescript": "^5.3.3",
+        "@types/bn.js": "^5.1.5",
+        "@types/node": "^20.0.0"
+    },
+    "files": [
+        "dist"
+    ],
+    "author": "Ikkii",
+    "license": "ISC"
+}

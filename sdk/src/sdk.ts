@@ -15,10 +15,8 @@ import {
 } from "@solana/web3.js";
 import {
     TOKEN_PROGRAM_ID,
-    getAssociatedTokenAddressSync,
 } from "@solana/spl-token";
-import type { IkkiEscrow } from "../../target/types/ikki_escrow";
-
+import type { IkkiEscrow } from "./ikki_escrow";
 // ─── PDA Derivation ─────────────────────────────────────────────────────────────
 
 export function findPlatformConfigPDA(programId: PublicKey): [PublicKey, number] {
