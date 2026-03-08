@@ -5,7 +5,7 @@
  * IDL can be found at `target/idl/ikki_escrow.json`.
  */
 export type IkkiEscrow = {
-  "address": "Fg6PaFpoGXkYsidMpWTK6W2BeZ7FEfcYkg476zPFsLnS",
+  "address": "7rP4rHKBqnYGB2UgpeRtd9f3FZ1PHwfc4iPVhWRv9UP4",
   "metadata": {
     "name": "ikkiEscrow",
     "version": "0.1.0",

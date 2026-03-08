@@ -11,6 +11,9 @@ pub const MAX_FEE_BPS: u16 = 1000;
 /// Basis-point denominator
 pub const BPS_DENOMINATOR: u64 = 10_000;
 
+/// Maximum escrow duration: 30 days
+pub const MAX_ESCROW_DURATION_SECONDS: i64 = 30 * 24 * 60 * 60;
+
 // ─── Program ────────────────────────────────────────────────────────────────────
 
 #[program]
@@ -20,11 +23,12 @@ pub mod ikki_escrow {
     // ── Platform Management ─────────────────────────────────────────────────
 
     /// One-time initialisation: create the singleton PlatformConfig.
-    pub fn initialize_platform(
-        ctx: Context<InitializePlatform>,
-        fee_bps: u16,
-    ) -> Result<()> {
+    pub fn initialize_platform(ctx: Context<InitializePlatform>, fee_bps: u16) -> Result<()> {
         require!(fee_bps <= MAX_FEE_BPS, EscrowError::FeeTooHigh);
+        require!(
+            ctx.accounts.treasury.key() != Pubkey::default(),
+            EscrowError::InvalidTreasury
+        );
 
         let config = &mut ctx.accounts.platform_config;
         config.authority = ctx.accounts.authority.key();
@@ -32,7 +36,11 @@ pub mod ikki_escrow {
         config.fee_bps = fee_bps;
         config.bump = ctx.bumps.platform_config;
 
-        msg!("Platform initialized: fee={}bps, treasury={}", fee_bps, config.treasury);
+        msg!(
+            "Platform initialized: fee={}bps, treasury={}",
+            fee_bps,
+            config.treasury
+        );
         Ok(())
     }
 
@@ -52,7 +60,11 @@ pub mod ikki_escrow {
             config.treasury = treasury;
         }
 
-        msg!("Platform updated: fee={}bps, treasury={}", config.fee_bps, config.treasury);
+        msg!(
+            "Platform updated: fee={}bps, treasury={}",
+            config.fee_bps,
+            config.treasury
+        );
         Ok(())
     }
 
@@ -69,6 +81,10 @@ pub mod ikki_escrow {
 
         let clock = Clock::get()?;
         require!(expiry > clock.unix_timestamp, EscrowError::ExpiryInPast);
+        require!(
+            expiry <= clock.unix_timestamp + MAX_ESCROW_DURATION_SECONDS,
+            EscrowError::ExpiryTooFar
+        );
 
         let escrow = &mut ctx.accounts.escrow;
         escrow.duel_id = duel_id;
@@ -108,14 +124,20 @@ pub mod ikki_escrow {
     pub fn join_escrow(ctx: Context<JoinEscrow>) -> Result<()> {
         let escrow = &mut ctx.accounts.escrow;
 
-        require!(escrow.status == EscrowStatus::Open, EscrowError::InvalidStatus);
+        require!(
+            escrow.status == EscrowStatus::Open,
+            EscrowError::InvalidStatus
+        );
         require!(
             ctx.accounts.player2.key() != escrow.player1,
             EscrowError::SelfDuel
         );
 
         let clock = Clock::get()?;
-        require!(clock.unix_timestamp < escrow.expiry, EscrowError::EscrowExpired);
+        require!(
+            clock.unix_timestamp < escrow.expiry,
+            EscrowError::EscrowExpired
+        );
 
         escrow.player2 = ctx.accounts.player2.key();
         escrow.status = EscrowStatus::Active;
@@ -142,16 +164,26 @@ pub mod ikki_escrow {
     pub fn settle_escrow(ctx: Context<SettleEscrow>, winner: Pubkey) -> Result<()> {
         let escrow = &mut ctx.accounts.escrow;
 
-        require!(escrow.status == EscrowStatus::Active, EscrowError::InvalidStatus);
+        require!(
+            escrow.status == EscrowStatus::Active,
+            EscrowError::InvalidStatus
+        );
         require!(
             winner == escrow.player1 || winner == escrow.player2,
             EscrowError::InvalidWinner
+        );
+        require!(
+            ctx.accounts.winner_token_account.owner == winner,
+            EscrowError::Unauthorized
         );
 
         escrow.winner = winner;
         escrow.status = EscrowStatus::Settled;
 
-        let total_pot = escrow.stake_amount.checked_mul(2).ok_or(EscrowError::Overflow)?;
+        let total_pot = escrow
+            .stake_amount
+            .checked_mul(2)
+            .ok_or(EscrowError::Overflow)?;
         let fee = total_pot
             .checked_mul(ctx.accounts.platform_config.fee_bps as u64)
             .ok_or(EscrowError::Overflow)?
@@ -195,14 +227,22 @@ pub mod ikki_escrow {
             )?;
         }
 
-        msg!("Escrow settled: winner={}, payout={}, fee={}", winner, payout, fee);
+        msg!(
+            "Escrow settled: winner={}, payout={}, fee={}",
+            winner,
+            payout,
+            fee
+        );
         Ok(())
     }
 
     /// Authority marks an active escrow as disputed.
     pub fn dispute_escrow(ctx: Context<DisputeEscrow>) -> Result<()> {
         let escrow = &mut ctx.accounts.escrow;
-        require!(escrow.status == EscrowStatus::Active, EscrowError::InvalidStatus);
+        require!(
+            escrow.status == EscrowStatus::Active,
+            EscrowError::InvalidStatus
+        );
 
         escrow.status = EscrowStatus::Disputed;
         msg!("Escrow disputed");
@@ -213,16 +253,26 @@ pub mod ikki_escrow {
     pub fn resolve_dispute(ctx: Context<ResolveDispute>, winner: Pubkey) -> Result<()> {
         let escrow = &mut ctx.accounts.escrow;
 
-        require!(escrow.status == EscrowStatus::Disputed, EscrowError::InvalidStatus);
+        require!(
+            escrow.status == EscrowStatus::Disputed,
+            EscrowError::InvalidStatus
+        );
         require!(
             winner == escrow.player1 || winner == escrow.player2,
             EscrowError::InvalidWinner
+        );
+        require!(
+            ctx.accounts.winner_token_account.owner == winner,
+            EscrowError::Unauthorized
         );
 
         escrow.winner = winner;
         escrow.status = EscrowStatus::Settled;
 
-        let total_pot = escrow.stake_amount.checked_mul(2).ok_or(EscrowError::Overflow)?;
+        let total_pot = escrow
+            .stake_amount
+            .checked_mul(2)
+            .ok_or(EscrowError::Overflow)?;
         let fee = total_pot
             .checked_mul(ctx.accounts.platform_config.fee_bps as u64)
             .ok_or(EscrowError::Overflow)?
@@ -265,7 +315,12 @@ pub mod ikki_escrow {
             )?;
         }
 
-        msg!("Dispute resolved: winner={}, payout={}, fee={}", winner, payout, fee);
+        msg!(
+            "Dispute resolved: winner={}, payout={}, fee={}",
+            winner,
+            payout,
+            fee
+        );
         Ok(())
     }
 
@@ -273,7 +328,10 @@ pub mod ikki_escrow {
     pub fn cancel_escrow(ctx: Context<CancelEscrow>) -> Result<()> {
         let escrow = &mut ctx.accounts.escrow;
 
-        require!(escrow.status == EscrowStatus::Open, EscrowError::InvalidStatus);
+        require!(
+            escrow.status == EscrowStatus::Open,
+            EscrowError::InvalidStatus
+        );
         require!(
             ctx.accounts.player1.key() == escrow.player1,
             EscrowError::Unauthorized
@@ -309,10 +367,16 @@ pub mod ikki_escrow {
     pub fn claim_expired(ctx: Context<ClaimExpired>) -> Result<()> {
         let escrow = &mut ctx.accounts.escrow;
 
-        require!(escrow.status == EscrowStatus::Open, EscrowError::InvalidStatus);
+        require!(
+            escrow.status == EscrowStatus::Open,
+            EscrowError::InvalidStatus
+        );
 
         let clock = Clock::get()?;
-        require!(clock.unix_timestamp >= escrow.expiry, EscrowError::NotExpired);
+        require!(
+            clock.unix_timestamp >= escrow.expiry,
+            EscrowError::NotExpired
+        );
 
         escrow.status = EscrowStatus::Cancelled;
 
@@ -337,6 +401,65 @@ pub mod ikki_escrow {
         )?;
 
         msg!("Expired escrow claimed, player1 refunded {}", refund_amount);
+        Ok(())
+    }
+
+    /// Permissionless: Anyone can claim refunds for an expired Active escrow.
+    /// Both players receive their stake back.
+    pub fn claim_expired_active(ctx: Context<ClaimExpiredActive>) -> Result<()> {
+        let escrow = &mut ctx.accounts.escrow;
+
+        require!(
+            escrow.status == EscrowStatus::Active,
+            EscrowError::InvalidStatus
+        );
+
+        let clock = Clock::get()?;
+        require!(
+            clock.unix_timestamp >= escrow.expiry,
+            EscrowError::NotExpired
+        );
+
+        escrow.status = EscrowStatus::Cancelled;
+
+        let duel_id = escrow.duel_id;
+        let bump = escrow.bump;
+        let refund_amount = escrow.stake_amount;
+        let seeds: &[&[u8]] = &[b"escrow", duel_id.as_ref(), &[bump]];
+        let signer_seeds = &[seeds];
+
+        // Refund player1
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.vault.to_account_info(),
+                    to: ctx.accounts.player1_token_account.to_account_info(),
+                    authority: ctx.accounts.escrow.to_account_info(),
+                },
+                signer_seeds,
+            ),
+            refund_amount,
+        )?;
+
+        // Refund player2
+        token::transfer(
+            CpiContext::new_with_signer(
+                ctx.accounts.token_program.to_account_info(),
+                Transfer {
+                    from: ctx.accounts.vault.to_account_info(),
+                    to: ctx.accounts.player2_token_account.to_account_info(),
+                    authority: ctx.accounts.escrow.to_account_info(),
+                },
+                signer_seeds,
+            ),
+            refund_amount,
+        )?;
+
+        msg!(
+            "Expired Active escrow claimed, both players refunded {}",
+            refund_amount
+        );
         Ok(())
     }
 }
@@ -526,11 +649,18 @@ pub struct SettleEscrow<'info> {
     pub vault: Account<'info, TokenAccount>,
 
     /// Winner's token account to receive payout
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = winner_token_account.mint == escrow.token_mint @ EscrowError::MintMismatch,
+    )]
     pub winner_token_account: Account<'info, TokenAccount>,
 
     /// Treasury token account to receive platform fee
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = treasury_token_account.owner == platform_config.treasury @ EscrowError::Unauthorized,
+        constraint = treasury_token_account.mint == escrow.token_mint @ EscrowError::MintMismatch,
+    )]
     pub treasury_token_account: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
@@ -581,11 +711,18 @@ pub struct ResolveDispute<'info> {
     pub vault: Account<'info, TokenAccount>,
 
     /// Winner's token account
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = winner_token_account.mint == escrow.token_mint @ EscrowError::MintMismatch,
+    )]
     pub winner_token_account: Account<'info, TokenAccount>,
 
     /// Treasury token account for fee
-    #[account(mut)]
+    #[account(
+        mut,
+        constraint = treasury_token_account.owner == platform_config.treasury @ EscrowError::Unauthorized,
+        constraint = treasury_token_account.mint == escrow.token_mint @ EscrowError::MintMismatch,
+    )]
     pub treasury_token_account: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
@@ -652,6 +789,42 @@ pub struct ClaimExpired<'info> {
     pub token_program: Program<'info, Token>,
 }
 
+#[derive(Accounts)]
+pub struct ClaimExpiredActive<'info> {
+    #[account(mut)]
+    pub cranker: Signer<'info>,
+
+    #[account(
+        mut,
+        seeds = [b"escrow", escrow.duel_id.as_ref()],
+        bump = escrow.bump,
+    )]
+    pub escrow: Account<'info, EscrowAccount>,
+
+    #[account(
+        mut,
+        seeds = [b"vault", escrow.duel_id.as_ref()],
+        bump,
+    )]
+    pub vault: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        constraint = player1_token_account.owner == escrow.player1 @ EscrowError::Unauthorized,
+        constraint = player1_token_account.mint == escrow.token_mint @ EscrowError::MintMismatch,
+    )]
+    pub player1_token_account: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        constraint = player2_token_account.owner == escrow.player2 @ EscrowError::Unauthorized,
+        constraint = player2_token_account.mint == escrow.token_mint @ EscrowError::MintMismatch,
+    )]
+    pub player2_token_account: Account<'info, TokenAccount>,
+
+    pub token_program: Program<'info, Token>,
+}
+
 // ─── Errors ─────────────────────────────────────────────────────────────────────
 
 #[error_code]
@@ -688,4 +861,10 @@ pub enum EscrowError {
 
     #[msg("Expiry timestamp must be in the future")]
     ExpiryInPast,
+
+    #[msg("Expiry timestamp is too far in the future (max 30 days)")]
+    ExpiryTooFar,
+
+    #[msg("Invalid treasury address")]
+    InvalidTreasury,
 }

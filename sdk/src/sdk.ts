@@ -15,8 +15,33 @@ import {
 } from "@solana/web3.js";
 import {
     TOKEN_PROGRAM_ID,
+    getAccount,
 } from "@solana/spl-token";
 import type { IkkiEscrow } from "./ikki_escrow";
+
+export async function validateTokenAccount(
+    connection: anchor.web3.Connection,
+    tokenAccount: PublicKey,
+    expectedOwner: PublicKey,
+    expectedMint: PublicKey,
+): Promise<void> {
+    try {
+        const account = await getAccount(connection, tokenAccount);
+        if (account.owner.toBase58() !== expectedOwner.toBase58()) {
+            throw new Error(
+                `Token account owner mismatch: expected ${expectedOwner.toBase58()}, got ${account.owner.toBase58()}`
+            );
+        }
+        if (account.mint.toBase58() !== expectedMint.toBase58()) {
+            throw new Error(
+                `Token account mint mismatch: expected ${expectedMint.toBase58()}, got ${account.mint.toBase58()}`
+            );
+        }
+    } catch (err) {
+        if (err instanceof Error) throw err;
+        throw new Error(`Invalid token account: ${err}`);
+    }
+}
 // ─── PDA Derivation ─────────────────────────────────────────────────────────────
 
 export function findPlatformConfigPDA(programId: PublicKey): [PublicKey, number] {
@@ -51,8 +76,11 @@ export function findVaultPDA(
  * into a 16-byte Buffer suitable for the duel_id field.
  */
 export function uuidToBytes(uuid: string): Buffer {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(uuid)) {
+        throw new Error("Invalid UUID format");
+    }
     const hex = uuid.replace(/-/g, "");
-    if (hex.length !== 32) throw new Error("Invalid UUID length");
     return Buffer.from(hex, "hex");
 }
 
@@ -182,6 +210,22 @@ export class IkkiEscrowSDK {
         const [platformConfigPDA] = findPlatformConfigPDA(this.programId);
         const [escrowPDA] = findEscrowPDA(duelId, this.programId);
         const [vaultPDA] = findVaultPDA(duelId, this.programId);
+
+        const escrow = await this.fetchEscrow(duelId);
+        const platformConfig = await this.fetchPlatformConfig();
+
+        await validateTokenAccount(
+            this.provider.connection,
+            winnerTokenAccount,
+            winner,
+            escrow.tokenMint,
+        );
+        await validateTokenAccount(
+            this.provider.connection,
+            treasuryTokenAccount,
+            platformConfig.treasury,
+            escrow.tokenMint,
+        );
 
         const tx = await this.program.methods
             .settleEscrow(winner)
