@@ -8,6 +8,7 @@ import * as anchor from "@coral-xyz/anchor";
 import { Program, AnchorProvider, BN } from "@coral-xyz/anchor";
 import { PublicKey, Keypair } from "@solana/web3.js";
 import type { IkkiEscrow } from "./ikki_escrow";
+export declare function validateTokenAccount(connection: anchor.web3.Connection, tokenAccount: PublicKey, expectedOwner: PublicKey, expectedMint: PublicKey): Promise<void>;
 export declare function findPlatformConfigPDA(programId: PublicKey): [PublicKey, number];
 export declare function findEscrowPDA(duelId: Buffer, programId: PublicKey): [PublicKey, number];
 export declare function findVaultPDA(duelId: Buffer, programId: PublicKey): [PublicKey, number];
