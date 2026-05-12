@@ -1,0 +1,22 @@
+[package]
+name = "ikkii-escrow-v2"
+version = "0.2.0"
+description = "Ikkii platform on-chain escrow v2 — NFT + Token-2022 support"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ikkii_escrow_v2"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = "0.31.1"
+anchor-spl = "0.31.1"
+hex = "0.4.3"
