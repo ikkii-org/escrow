@@ -1,0 +1,246 @@
+"use strict";
+/**
+ * Ikki Escrow V2 SDK
+ *
+ * TypeScript helpers for interacting with the on-chain ikki_escrow_v2 program.
+ * Supports SPL Token and Token-2022, plus NFT escrow creation.
+ */
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.IkkiEscrowV2SDK = void 0;
+exports.validateTokenAccount = validateTokenAccount;
+exports.findPlatformConfigPDA = findPlatformConfigPDA;
+exports.findEscrowPDA = findEscrowPDA;
+exports.findVaultPDA = findVaultPDA;
+exports.uuidToBytes = uuidToBytes;
+const anchor_1 = require("@coral-xyz/anchor");
+const web3_js_1 = require("@solana/web3.js");
+const spl_token_1 = require("@solana/spl-token");
+async function validateTokenAccount(connection, tokenAccount, expectedOwner, expectedMint) {
+    try {
+        const account = await (0, spl_token_1.getAccount)(connection, tokenAccount);
+        if (account.owner.toBase58() !== expectedOwner.toBase58()) {
+            throw new Error(`Token account owner mismatch: expected ${expectedOwner.toBase58()}, got ${account.owner.toBase58()}`);
+        }
+        if (account.mint.toBase58() !== expectedMint.toBase58()) {
+            throw new Error(`Token account mint mismatch: expected ${expectedMint.toBase58()}, got ${account.mint.toBase58()}`);
+        }
+    }
+    catch (err) {
+        if (err instanceof Error)
+            throw err;
+        throw new Error(`Invalid token account: ${err}`);
+    }
+}
+// ─── PDA Derivation ─────────────────────────────────────────────────────────────
+function findPlatformConfigPDA(programId) {
+    return web3_js_1.PublicKey.findProgramAddressSync([Buffer.from("platform_config")], programId);
+}
+function findEscrowPDA(duelId, programId) {
+    return web3_js_1.PublicKey.findProgramAddressSync([Buffer.from("escrow"), duelId], programId);
+}
+function findVaultPDA(duelId, programId) {
+    return web3_js_1.PublicKey.findProgramAddressSync([Buffer.from("vault"), duelId], programId);
+}
+/**
+ * Convert a UUID string into a 16-byte Buffer suitable for the duel_id field.
+ */
+function uuidToBytes(uuid) {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(uuid)) {
+        throw new Error("Invalid UUID format");
+    }
+    const hex = uuid.replace(/-/g, "");
+    return Buffer.from(hex, "hex");
+}
+// ─── SDK Class ──────────────────────────────────────────────────────────────────
+class IkkiEscrowV2SDK {
+    constructor(program, provider) {
+        this.program = program;
+        this.provider = provider;
+    }
+    get programId() {
+        return this.program.programId;
+    }
+    // ── Platform ────────────────────────────────────────────────────────────
+    async initializePlatform(authority, treasury, feeBps) {
+        const [platformConfigPDA] = findPlatformConfigPDA(this.programId);
+        const tx = await this.program.methods
+            .initializePlatform(feeBps)
+            .accountsStrict({
+            authority: authority.publicKey,
+            platformConfig: platformConfigPDA,
+            treasury,
+            systemProgram: web3_js_1.SystemProgram.programId,
+        })
+            .signers([authority])
+            .rpc();
+        return tx;
+    }
+    async updatePlatform(authority, newFeeBps, newTreasury) {
+        const [platformConfigPDA] = findPlatformConfigPDA(this.programId);
+        const tx = await this.program.methods
+            .updatePlatform(newFeeBps !== undefined ? newFeeBps : null, newTreasury !== undefined ? newTreasury : null)
+            .accountsStrict({
+            platformConfig: platformConfigPDA,
+            authority: authority.publicKey,
+        })
+            .signers([authority])
+            .rpc();
+        return tx;
+    }
+    // ── Escrow Lifecycle ────────────────────────────────────────────────────
+    async createEscrow(player1, duelId, stakeAmount, tokenMint, expiryTimestamp, player1TokenAccount, tokenProgram = spl_token_1.TOKEN_PROGRAM_ID) {
+        const [escrowPDA] = findEscrowPDA(duelId, this.programId);
+        const [vaultPDA] = findVaultPDA(duelId, this.programId);
+        const duelIdArray = Array.from(duelId);
+        const tx = await this.program.methods
+            .createEscrow(duelIdArray, stakeAmount, expiryTimestamp)
+            .accountsStrict({
+            player1: player1.publicKey,
+            escrow: escrowPDA,
+            tokenMint,
+            player1TokenAccount,
+            vault: vaultPDA,
+            tokenProgram,
+            systemProgram: web3_js_1.SystemProgram.programId,
+        })
+            .signers([player1])
+            .rpc();
+        return tx;
+    }
+    async createNftEscrow(player1, duelId, tokenMint, expiryTimestamp, player1TokenAccount, tokenProgram = spl_token_1.TOKEN_PROGRAM_ID) {
+        const [escrowPDA] = findEscrowPDA(duelId, this.programId);
+        const [vaultPDA] = findVaultPDA(duelId, this.programId);
+        const duelIdArray = Array.from(duelId);
+        const stakeAmount = new anchor_1.BN(1);
+        const tx = await this.program.methods
+            .createNftEscrow(duelIdArray, stakeAmount, expiryTimestamp)
+            .accountsStrict({
+            player1: player1.publicKey,
+            escrow: escrowPDA,
+            tokenMint,
+            player1TokenAccount,
+            vault: vaultPDA,
+            tokenProgram,
+            systemProgram: web3_js_1.SystemProgram.programId,
+        })
+            .signers([player1])
+            .rpc();
+        return tx;
+    }
+    async joinEscrow(player2, duelId, player2TokenAccount) {
+        const [escrowPDA] = findEscrowPDA(duelId, this.programId);
+        const [vaultPDA] = findVaultPDA(duelId, this.programId);
+        const tx = await this.program.methods
+            .joinEscrow()
+            .accountsStrict({
+            player2: player2.publicKey,
+            escrow: escrowPDA,
+            player2TokenAccount,
+            vault: vaultPDA,
+            tokenProgram: spl_token_1.TOKEN_PROGRAM_ID,
+        })
+            .signers([player2])
+            .rpc();
+        return tx;
+    }
+    async settleEscrow(authority, duelId, winner, winnerTokenAccount, treasuryTokenAccount) {
+        const [platformConfigPDA] = findPlatformConfigPDA(this.programId);
+        const [escrowPDA] = findEscrowPDA(duelId, this.programId);
+        const [vaultPDA] = findVaultPDA(duelId, this.programId);
+        const escrow = await this.fetchEscrow(duelId);
+        const platformConfig = await this.fetchPlatformConfig();
+        await validateTokenAccount(this.provider.connection, winnerTokenAccount, winner, escrow.tokenMint);
+        await validateTokenAccount(this.provider.connection, treasuryTokenAccount, platformConfig.treasury, escrow.tokenMint);
+        const tx = await this.program.methods
+            .settleEscrow(winner)
+            .accountsStrict({
+            authority: authority.publicKey,
+            platformConfig: platformConfigPDA,
+            escrow: escrowPDA,
+            vault: vaultPDA,
+            winnerTokenAccount,
+            treasuryTokenAccount,
+            tokenProgram: escrow.tokenProgramId,
+        })
+            .signers([authority])
+            .rpc();
+        return tx;
+    }
+    async disputeEscrow(authority, duelId) {
+        const [platformConfigPDA] = findPlatformConfigPDA(this.programId);
+        const [escrowPDA] = findEscrowPDA(duelId, this.programId);
+        const tx = await this.program.methods
+            .disputeEscrow()
+            .accountsStrict({
+            authority: authority.publicKey,
+            platformConfig: platformConfigPDA,
+            escrow: escrowPDA,
+        })
+            .signers([authority])
+            .rpc();
+        return tx;
+    }
+    async resolveDispute(authority, duelId, winner, winnerTokenAccount, treasuryTokenAccount) {
+        const [platformConfigPDA] = findPlatformConfigPDA(this.programId);
+        const [escrowPDA] = findEscrowPDA(duelId, this.programId);
+        const [vaultPDA] = findVaultPDA(duelId, this.programId);
+        const tx = await this.program.methods
+            .resolveDispute(winner)
+            .accountsStrict({
+            authority: authority.publicKey,
+            platformConfig: platformConfigPDA,
+            escrow: escrowPDA,
+            vault: vaultPDA,
+            winnerTokenAccount,
+            treasuryTokenAccount,
+            tokenProgram: spl_token_1.TOKEN_PROGRAM_ID,
+        })
+            .signers([authority])
+            .rpc();
+        return tx;
+    }
+    async cancelEscrow(player1, duelId, player1TokenAccount) {
+        const [escrowPDA] = findEscrowPDA(duelId, this.programId);
+        const [vaultPDA] = findVaultPDA(duelId, this.programId);
+        const tx = await this.program.methods
+            .cancelEscrow()
+            .accountsStrict({
+            player1: player1.publicKey,
+            escrow: escrowPDA,
+            vault: vaultPDA,
+            player1TokenAccount,
+            tokenProgram: spl_token_1.TOKEN_PROGRAM_ID,
+        })
+            .signers([player1])
+            .rpc();
+        return tx;
+    }
+    async claimExpired(cranker, duelId, player1TokenAccount) {
+        const [escrowPDA] = findEscrowPDA(duelId, this.programId);
+        const [vaultPDA] = findVaultPDA(duelId, this.programId);
+        const tx = await this.program.methods
+            .claimExpired()
+            .accountsStrict({
+            cranker: cranker.publicKey,
+            escrow: escrowPDA,
+            vault: vaultPDA,
+            player1TokenAccount,
+            tokenProgram: spl_token_1.TOKEN_PROGRAM_ID,
+        })
+            .signers([cranker])
+            .rpc();
+        return tx;
+    }
+    // ── Fetch helpers ───────────────────────────────────────────────────────
+    async fetchPlatformConfig() {
+        const [pda] = findPlatformConfigPDA(this.programId);
+        return this.program.account.platformConfig.fetch(pda);
+    }
+    async fetchEscrow(duelId) {
+        const [pda] = findEscrowPDA(duelId, this.programId);
+        return this.program.account.escrowAccountV2.fetch(pda);
+    }
+}
+exports.IkkiEscrowV2SDK = IkkiEscrowV2SDK;
+exports.default = IkkiEscrowV2SDK;
