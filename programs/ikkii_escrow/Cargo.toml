@@ -1,12 +1,12 @@
 [package]
-name = "ikki-escrow"
+name = "ikkii-escrow"
 version = "0.1.0"
-description = "Ikki platform on-chain escrow for competitive gaming duels"
+description = "Ikkii platform on-chain escrow for competitive gaming duels"
 edition = "2021"
 
 [lib]
 crate-type = ["cdylib", "lib"]
-name = "ikki_escrow"
+name = "ikkii_escrow"
 
 [features]
 default = []

@@ -2,15 +2,15 @@
  * Program IDL in camelCase format in order to be used in JS/TS.
  *
  * Note that this is only a type helper and is not the actual IDL. The original
- * IDL can be found at `target/idl/ikki_escrow.json`.
+ * IDL can be found at `target/idl/ikkii_escrow.json`.
  */
-export type IkkiEscrow = {
+export type IkkiiEscrow = {
   "address": "7rP4rHKBqnYGB2UgpeRtd9f3FZ1PHwfc4iPVhWRv9UP4",
   "metadata": {
-    "name": "ikkiEscrow",
+    "name": "ikkiiEscrow",
     "version": "0.1.0",
     "spec": "0.1.0",
-    "description": "Ikki platform on-chain escrow for competitive gaming duels"
+    "description": "Ikkii platform on-chain escrow for competitive gaming duels"
   },
   "instructions": [
     {

@@ -17,7 +17,7 @@ pub const MAX_ESCROW_DURATION_SECONDS: i64 = 30 * 24 * 60 * 60;
 // ─── Program ────────────────────────────────────────────────────────────────────
 
 #[program]
-pub mod ikki_escrow {
+pub mod ikkiiescrow {
     use super::*;
 
     // ── Platform Management ─────────────────────────────────────────────────

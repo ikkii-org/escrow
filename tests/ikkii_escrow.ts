@@ -15,17 +15,17 @@ import {
     getAccount,
 } from "@solana/spl-token";
 import { expect } from "chai";
-import type { IkkiEscrow } from "../target/types/ikki_escrow";
+import type { IkkiiEscrow } from "../target/types/ikkii_escrow";
 import {
     findPlatformConfigPDA,
     findEscrowPDA,
     findVaultPDA,
 } from "../sdk/src/sdk";
 
-describe("ikki_escrow", () => {
+describe("ikkii_escrow", () => {
     const provider = AnchorProvider.env();
     anchor.setProvider(provider);
-    const program = anchor.workspace.IkkiEscrow as Program<IkkiEscrow>;
+    const program = anchor.workspace.IkkiiEscrow as Program<IkkiiEscrow>;
 
     // ── Key actors ──────────────────────────────────────────────────────────
     const authority = Keypair.generate();
