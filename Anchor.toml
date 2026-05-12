@@ -3,7 +3,8 @@ seeds = false
 skip-lint = false
 
 [programs.devnet]
-ikki_escrow = "7rP4rHKBqnYGB2UgpeRtd9f3FZ1PHwfc4iPVhWRv9UP4"
+ikkii_escrow = "7rP4rHKBqnYGB2UgpeRtd9f3FZ1PHwfc4iPVhWRv9UP4"
+ikkii_escrow_v2 = "4T3bc2eimNKACT9FxTJaySC5jzqaBLct8Zo4BDjprnN2"
 [registry]
 url = "https://api.apr.dev"
 

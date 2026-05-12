@@ -1,7 +1,7 @@
 /**
- * Ikki Escrow SDK
+ * Ikkii Escrow SDK
  *
- * TypeScript helpers for interacting with the on-chain ikki_escrow program.
+ * TypeScript helpers for interacting with the on-chain ikkii_escrow program.
  * Import this from the server when wiring up on-chain calls.
  */
 
@@ -17,7 +17,7 @@ import {
     TOKEN_PROGRAM_ID,
     getAccount,
 } from "@solana/spl-token";
-import type { IkkiEscrow } from "./ikki_escrow";
+import type { IkkiiEscrow } from "./ikkii_escrow";
 
 export async function validateTokenAccount(
     connection: anchor.web3.Connection,
@@ -86,11 +86,11 @@ export function uuidToBytes(uuid: string): Buffer {
 
 // ─── SDK Class ──────────────────────────────────────────────────────────────────
 
-export class IkkiEscrowSDK {
-    public program: Program<IkkiEscrow>;
+export class IkkiiEscrowSDK {
+    public program: Program<IkkiiEscrow>;
     public provider: AnchorProvider;
 
-    constructor(program: Program<IkkiEscrow>, provider: AnchorProvider) {
+    constructor(program: Program<IkkiiEscrow>, provider: AnchorProvider) {
         this.program = program;
         this.provider = provider;
     }
@@ -351,4 +351,4 @@ export class IkkiEscrowSDK {
     }
 }
 
-export default IkkiEscrowSDK;
+export default IkkiiEscrowSDK;

@@ -1,4 +1,4 @@
-# Ikki Escrow
+# Ikkii Escrow
 An Anchor-based Solana smart contract handling escrow logic for head-to-head duels.
 
 This project implements an on-chain escrow system where two players deposit SPL tokens (e.g., SKR) into a decentralized vault. A centralized authority (the game server) then settles the match, dynamically distributing funds to the winner and reserving a platform fee for the treasury.
@@ -7,7 +7,7 @@ This project implements an on-chain escrow system where two players deposit SPL 
 
 The `escrow` directory is structured as a standard Solana Anchor workspace:
 
-- `programs/ikki_escrow/`
+- `programs/ikkii_escrow/`
   The Rust smart contract source code. This is where all on-chain logic resides.
 - `sdk/`
   A TypeScript SDK providing helper functions. This wraps the raw Anchor RPC calls and handles deterministic Program Derived Address (PDA) derivations for the backend.
@@ -18,7 +18,7 @@ The `escrow` directory is structured as a standard Solana Anchor workspace:
 - `Anchor.toml`
   Configuration for the Anchor CLI, detailing the localnet program ID, network settings, and test scripts.
 
-## Smart Contract Logic (`programs/ikki_escrow/src/lib.rs`)
+## Smart Contract Logic (`programs/ikkii_escrow/src/lib.rs`)
 
 The on-chain logic relies on strict state transitions enforced by Anchor's account constraints.
 
@@ -77,15 +77,15 @@ The SDK exports helpers to find these addresses:
 - `findEscrowPDA(duelId)`
 - `findVaultPDA(duelId)`
 
-### The `IkkiEscrowSDK` Class
-Instantiated with an `AnchorProvider` and the generated `Program<IkkiEscrow>`. It provides easy-to-use asynchronous methods wrapping the smart contract instructions:
+### The `IkkiiEscrowSDK` Class
+Instantiated with an `AnchorProvider` and the generated `Program<IkkiiEscrow>`. It provides easy-to-use asynchronous methods wrapping the smart contract instructions:
 - `sdk.createEscrow(...)`
 - `sdk.joinEscrow(...)`
 - `sdk.settleEscrow(...)`
 
 For user-facing actions (`createEscrow`, `joinEscrow`), the server will typically construct these instructions using the underlying Anchor methods and return them as an unsigned, serialized transaction buffer for the frontend wallet to sign. For authority-facing actions (`settleEscrow`), the server SDK signs the transaction directly using its stored private key.
 
-## Tests (`tests/ikki_escrow.ts`)
+## Tests (`tests/ikkii_escrow.ts`)
 
 The test suite simulates the complete end-to-end lifecycle on a local validator using `@coral-xyz/anchor` and `mocha`.
 

@@ -1,5 +1,5 @@
 {
-    "name": "ikki-escrow-sdk",
+    "name": "ikkii-escrow-sdk",
     "version": "1.0.0",
     "description": "SDK for Ikkii Solana Escrow Program",
     "main": "dist/index.js",
